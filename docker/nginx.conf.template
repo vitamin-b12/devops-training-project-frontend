@@ -28,8 +28,11 @@ server {
 
     # Proxy API calls to backend at runtime
     # Request: /api/users -> backend receives: /api/users (no path duplication)
+    resolver 169.254.169.253 valid=10s ipv6=off;
+
     location /api/ {
-        proxy_pass ${NGINX_BACKEND_URL};
+        set $backend "${NGINX_BACKEND_URL}";
+        proxy_pass $backend;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
