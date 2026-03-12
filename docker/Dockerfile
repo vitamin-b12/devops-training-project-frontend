@@ -24,12 +24,12 @@ COPY --from=builder /app/build /usr/share/nginx/html
 
 COPY ./docker/nginx.conf.template /etc/nginx/templates/default.conf.template
 
-COPY ./docker/entrypoint.sh ./entrypoint.sh
+COPY ./docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 EXPOSE 80
 
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=30s \
-  CMD wget -qO- http://localhost/health || exit 1
+  CMD wget -q -O- http://localhost/health || exit 1
 
 ENTRYPOINT ["/entrypoint.sh"]

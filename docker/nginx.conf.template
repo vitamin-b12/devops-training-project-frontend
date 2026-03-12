@@ -1,3 +1,6 @@
+limit_req_zone $binary_remote_addr zone=general:10m rate=30r/s;
+limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
+
 server {
     listen 80;
     server_name _;
@@ -7,10 +10,12 @@ server {
 
     resolver 169.254.169.253 valid=10s ipv6=off;
 
-    # Security headers (applied globally)
+    # Security headers
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
     add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';" always;
     # Note: Strict-Transport-Security should be set at the TLS-terminating layer (e.g. ALB/Ingress), not here on plain HTTP
 
@@ -23,15 +28,52 @@ server {
                text/xml application/xml application/xml+rss text/javascript
                image/svg+xml;
 
-    # SPA routing — all unknown paths fall back to index.html
-    location / {
-        try_files $uri $uri/ /index.html;
+    # Block known scanners and exploit tools by user agent
+    if ($http_user_agent ~* (libredtail|masscan|zgrab|nikto|sqlmap|nmap|hydra|dirbuster|nuclei)) {
+        return 403;
+    }
+
+    # Block common file extension exploit probes
+    location ~* \.(php|asp|aspx|jsp|cgi|pl|py|sh|bash|env|htaccess|htpasswd|sql|bak|backup|conf|ini|cfg)$ {
+        return 404;
+    }
+
+    # Block known attack paths
+    location ~* (vendor|wp-admin|wp-login|phpmyadmin|\.git|\.env|xmlrpc|eval-stdin|allow_url_include) {
+        return 404;
+    }
+
+    # Health check endpoint
+    location /health {
+        access_log off;
+        return 200 "ok\n";
+        add_header Content-Type text/plain;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+    }
+
+    # Never cache index.html
+    location = /index.html {
+        limit_req zone=general burst=50 nodelay;
+        add_header Cache-Control "no-store, no-cache, must-revalidate";
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';" always;
+    }
+
+    # Long cache for hashed static assets
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     }
 
     # Proxy API calls to backend at runtime
-    # Request: /api/users -> backend receives: /api/users (no path duplication)
-    
     location /api/ {
+        limit_req zone=api burst=20 nodelay;
         set $backend "${NGINX_BACKEND_URL}";
         proxy_pass $backend;
         proxy_set_header Host $host;
@@ -42,33 +84,9 @@ server {
         proxy_read_timeout 30s;
     }
 
-    # Health check endpoint
-    location /health {
-        access_log off;
-        return 200 "ok\n";
-        add_header Content-Type text/plain;
-        # Repeat security headers — add_header in child block overrides parent
-        add_header X-Content-Type-Options "nosniff" always;
-        add_header X-Frame-Options "SAMEORIGIN" always;
-    }
-
-    # Long cache for hashed static assets
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-        # Repeat security headers — add_header in child block overrides parent
-        add_header X-Content-Type-Options "nosniff" always;
-        add_header X-Frame-Options "SAMEORIGIN" always;
-        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    }
-
-    # Never cache index.html
-    location = /index.html {
-        add_header Cache-Control "no-store, no-cache, must-revalidate";
-        # Repeat security headers — add_header in child block overrides parent
-        add_header X-Frame-Options "SAMEORIGIN" always;
-        add_header X-Content-Type-Options "nosniff" always;
-        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';" always;
+    # SPA routing — all unknown paths fall back to index.html
+    location / {
+        limit_req zone=general burst=50 nodelay;
+        try_files $uri $uri/ /index.html;
     }
 }
