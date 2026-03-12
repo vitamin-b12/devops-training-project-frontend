@@ -24,7 +24,7 @@ COPY --from=builder /app/build /usr/share/nginx/html
 
 COPY ./docker/nginx.conf.template /etc/nginx/templates/default.conf.template
 
-COPY ./docker/entrypoint.sh /entrypoint.sh
+COPY ./docker/entrypoint.sh ./entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 EXPOSE 80

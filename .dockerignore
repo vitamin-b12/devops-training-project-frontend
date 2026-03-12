@@ -14,7 +14,6 @@ dist/
 .env.*
 
 # Docker files — not needed inside image
-docker/
 .dockerignore
 Dockerfile*
 docker-compose*.yml
