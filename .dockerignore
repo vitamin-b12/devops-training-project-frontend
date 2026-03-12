@@ -1,0 +1,42 @@
+# Version control
+.git/
+.gitignore
+
+# Dependencies — rebuilt inside container via npm install
+node_modules/
+
+# Build output — rebuilt inside container via npm run build
+build/
+dist/
+
+# Environment files — injected at runtime, not baked into image
+.env
+.env.*
+
+# Docker files — not needed inside image
+docker/
+.dockerignore
+Dockerfile*
+docker-compose*.yml
+
+# Logs and debug
+npm-debug.log*
+yarn-debug.log*
+*.log
+logs/
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+
+# Testing
+coverage/
+
+# Docs
+README.md
+*.md
+
+# OS artifacts
+.DS_Store
+Thumbs.db
