@@ -5,6 +5,8 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    resolver 169.254.169.253 valid=10s ipv6=off;
+
     # Security headers (applied globally)
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
@@ -28,8 +30,7 @@ server {
 
     # Proxy API calls to backend at runtime
     # Request: /api/users -> backend receives: /api/users (no path duplication)
-    resolver 169.254.169.253 valid=10s ipv6=off;
-
+    
     location /api/ {
         set $backend "${NGINX_BACKEND_URL}";
         proxy_pass $backend;
